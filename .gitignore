@@ -1,5 +1,7 @@
 # Cached OAuth token
 /token.txt
+# Default backup folder
+/playlists
 
 
 # Byte-compiled / optimized / DLL files

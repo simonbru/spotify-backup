@@ -6,6 +6,7 @@ from pathlib import Path
 from spotipy import Spotify
 
 import auth_server
+from config import PLAYLISTS_FOLDER
 
 
 def retrieve_all_items(spotify, result):
@@ -17,8 +18,10 @@ def retrieve_all_items(spotify, result):
 
 
 def main():
+    pl_folder = Path(__file__).parent / PLAYLISTS_FOLDER
+    pl_folder.mkdir(exist_ok=True)
+
     print("Retrieving auth token")
-    pl_folder = Path(__file__).parent / 'playlists'
     token = auth_server.get_token()
     print("Starting export")
     sp = Spotify(auth=token)

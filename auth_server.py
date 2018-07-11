@@ -6,11 +6,14 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.request import HTTPError, Request, urlopen
 
+from config import TOKEN_FILE as RELATIVE_TOKEN_FILE
 
-TOKEN_FILE = Path(__file__).parent / 'token.txt'
+
 SERVER_PORT = 8193
 REDIRECT_URI = f'http://localhost:{SERVER_PORT}/auth'
 SPOTIFY_CLIENT_ID = '239865de29224f048b0cb696e2592f8e'
+
+TOKEN_FILE = Path(__file__).parent / RELATIVE_TOKEN_FILE
 
 
 class AuthorizationError(Exception):
