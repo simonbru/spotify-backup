@@ -1,0 +1,7 @@
+-i https://pypi.python.org/simple
+certifi==2018.4.16
+chardet==3.0.4
+idna==2.7
+requests==2.19.1; python_version >= '2.6'
+spotipy==2.4.4
+urllib3==1.23; python_version >= '2.6'
