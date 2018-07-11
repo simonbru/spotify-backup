@@ -113,7 +113,9 @@ def get_token(restore_token=True, save_token=True):
     # webbrowser.open(url)
     token = listen_for_token(port=SERVER_PORT)
     if save_token:
-        Path(TOKEN_FILE).write_text(token)
+        token_path = Path(TOKEN_FILE).resolve()
+        token_path.touch(0o600, exist_ok=True)
+        token_path.write_text(token)
     return token
 
 
