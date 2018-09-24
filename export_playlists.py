@@ -28,7 +28,9 @@ def main():
     backup_fnames = set()
     for pl in retrieve_all_items(sp, sp.current_user_playlists()):
         name = pl['name']
-        plname = pl['name'].replace('/','_')
+        plname = pl['name'].replace('/', '_').replace('\\', '_')\
+                           .replace('"', '`').replace("'", '`')\
+                           .replace(":", '-').replace('?', '-')
         backup_fname = f"{plname}_{pl['id']}.json"
         backup_fnames.add(backup_fname)
         backup_fpath = pl_folder / backup_fname
