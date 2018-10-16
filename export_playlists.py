@@ -6,7 +6,7 @@ from pathlib import Path
 from spotipy import Spotify
 
 import auth_server
-from config import PLAYLISTS_FOLDER
+from config import PLAYLISTS_FOLDER, PLAYLIST_FIELDS
 
 
 def retrieve_all_items(spotify, result):
@@ -45,9 +45,10 @@ def main():
 
         print(f'Retrieving playlist: {name}')
         playlist = sp.user_playlist(
-            user=pl['owner']['id'], playlist_id=pl['id']
+            user=pl['owner']['id'], playlist_id=pl['id'], fields=PLAYLIST_FIELDS
         )
-        playlist['tracks'] = retrieve_all_items(sp, playlist['tracks'])
+        if 'tracks' in playlist and 'items' in playlist['tracks'] and 'next' in playlist['tracks']:
+            playlist['tracks']['items'] = retrieve_all_items(sp, playlist['tracks'])
         backup_fpath.write_text(json.dumps(playlist))
 
     # Move deleted playlists elsewhere
