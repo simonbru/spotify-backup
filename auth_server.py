@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
 
 import urllib.parse
-import webbrowser
+import ast
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.request import HTTPError, Request, urlopen
+from urllib.parse import urlencode
 
 from config import TOKEN_FILE as RELATIVE_TOKEN_FILE
+from config import CLIENT_ID as SPOTIFY_CLIENT_ID, CLIENT_SECRET as SPOTIFY_CLIENT_SECRET
+from config import REFRESHABLE_AUTH
 
 
 SERVER_PORT = 8193
 REDIRECT_URI = f'http://localhost:{SERVER_PORT}/auth'
-SPOTIFY_CLIENT_ID = '239865de29224f048b0cb696e2592f8e'
 
 TOKEN_FILE = Path(__file__).parent / RELATIVE_TOKEN_FILE
 
 
 class AuthorizationError(Exception):
     pass
+
+
+def do_save_token(token):
+    token_path = Path(TOKEN_FILE).resolve()
+    token_path.touch(0o600, exist_ok=True)
+    token_path.write_text(token)
 
 
 def listen_for_token(port):
@@ -27,6 +35,8 @@ def listen_for_token(port):
         httpd.handle_request()
         if shared_context['access_token']:
             return shared_context['access_token']
+        if shared_context['code']:
+            return shared_context['code']
         elif shared_context['error']:
             raise AuthorizationError(shared_context['error'])
 
@@ -35,6 +45,7 @@ def create_request_handler():
 
     shared_context = {
         'access_token': None,
+        'code': None,
         'error': None
     }
 
@@ -75,6 +86,10 @@ def create_request_handler():
                 token = qs_dict['access_token'][0]
                 shared_context['access_token'] = token
                 html = self._success_tpl
+            elif 'code' in qs_dict:
+                token = qs_dict['code'][0]
+                shared_context['code'] = token
+                html = self._success_tpl
             else:
                 error = qs_dict.get('error', ['unknown'])[0]
                 shared_context['error'] = error
@@ -85,9 +100,31 @@ def create_request_handler():
     return AuthRequestHandler, shared_context
 
 
+def redeem_refresh_token(refresh_token):
+    request_params = urlencode({
+        'redirect_uri': REDIRECT_URI,
+        'grant_type': 'authorization_code',
+        'client_id': SPOTIFY_CLIENT_ID,
+        'client_secret': SPOTIFY_CLIENT_SECRET,
+        'code': refresh_token
+    }).encode()
+    url = f'https://accounts.spotify.com/api/token'
+    with urllib.request.urlopen(url, data=request_params) as response:
+        content = ast.literal_eval(response.read().decode())
+        return content['access_token'], content['refresh_token']
+
+
 def get_token(restore_token=True, save_token=True):
     if restore_token and TOKEN_FILE.resolve().exists():
         token = Path(TOKEN_FILE).read_text().strip()
+
+        if REFRESHABLE_AUTH:
+            try:
+                token = redeem_refresh_token(token)
+            except HTTPError:
+                # This will fail if the token wasn't a refresh token
+                pass
+
         # Check that the token is valid
         req = Request(
             'https://api.spotify.com/v1/me',
@@ -100,9 +137,14 @@ def get_token(restore_token=True, save_token=True):
         else:
             return token
 
-    url_params = urllib.parse.urlencode(dict(
+    if REFRESHABLE_AUTH:
+        response_type = 'code'
+    else:
+        response_type = 'token'
+
+    url_params = urlencode(dict(
         redirect_uri=REDIRECT_URI,
-        response_type='token',
+        response_type=response_type,
         client_id=SPOTIFY_CLIENT_ID,
         scope='playlist-read-private playlist-read-collaborative'
     ))
@@ -113,12 +155,15 @@ def get_token(restore_token=True, save_token=True):
         url,
         sep='\n'
     )
-    # webbrowser.open(url)
     token = listen_for_token(port=SERVER_PORT)
+
+    if REFRESHABLE_AUTH:
+        token, savable_token = redeem_refresh_token(token)
+    else:
+        savable_token = token
+
     if save_token:
-        token_path = Path(TOKEN_FILE).resolve()
-        token_path.touch(0o600, exist_ok=True)
-        token_path.write_text(token)
+        do_save_token(savable_token)
     return token
 
 
