@@ -114,6 +114,28 @@ def redeem_refresh_token(refresh_token):
         return content['access_token'], content['refresh_token']
 
 
+def prompt_user_for_auth():
+    if REFRESHABLE_AUTH:
+        response_type = 'code'
+    else:
+        response_type = 'token'
+
+    url_params = urlencode(dict(
+        redirect_uri=REDIRECT_URI,
+        response_type=response_type,
+        client_id=SPOTIFY_CLIENT_ID,
+        scope='playlist-read-private playlist-read-collaborative'
+    ))
+    url = f'https://accounts.spotify.com/authorize?{url_params}'
+    print(
+        "",
+        "Please open the following URL in a Web Browser to continue:",
+        url,
+        sep='\n'
+    )
+    return listen_for_token(port=SERVER_PORT)
+
+
 def get_token(restore_token=True, save_token=True):
     if restore_token and TOKEN_FILE.resolve().exists():
         token = Path(TOKEN_FILE).read_text().strip()
@@ -137,25 +159,7 @@ def get_token(restore_token=True, save_token=True):
         else:
             return token
 
-    if REFRESHABLE_AUTH:
-        response_type = 'code'
-    else:
-        response_type = 'token'
-
-    url_params = urlencode(dict(
-        redirect_uri=REDIRECT_URI,
-        response_type=response_type,
-        client_id=SPOTIFY_CLIENT_ID,
-        scope='playlist-read-private playlist-read-collaborative'
-    ))
-    url = f'https://accounts.spotify.com/authorize?{url_params}'
-    print(
-        "",
-        "Please open the following URL in a Web Browser to continue:",
-        url,
-        sep='\n'
-    )
-    token = listen_for_token(port=SERVER_PORT)
+    token = prompt_user_for_auth()
 
     if REFRESHABLE_AUTH:
         token, savable_token = redeem_refresh_token(token)
