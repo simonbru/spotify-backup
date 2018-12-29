@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-import urllib.parse
 import ast
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.request import HTTPError, Request, urlopen
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, parse_qs
 
 from config import TOKEN_FILE as RELATIVE_TOKEN_FILE
 from config import CLIENT_ID as SPOTIFY_CLIENT_ID, CLIENT_SECRET as SPOTIFY_CLIENT_SECRET
@@ -73,8 +72,8 @@ def create_request_handler():
         """
         
         def do_GET(self):
-            qs = urllib.parse.urlparse(self.path).query
-            qs_dict = urllib.parse.parse_qs(qs)
+            qs = urlparse(self.path).query
+            qs_dict = parse_qs(qs)
 
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
@@ -102,16 +101,31 @@ def create_request_handler():
 
 def redeem_refresh_token(refresh_token):
     request_params = urlencode({
-        'redirect_uri': REDIRECT_URI,
         'grant_type': 'authorization_code',
+        'code': refresh_token,
+        'redirect_uri': REDIRECT_URI,
         'client_id': SPOTIFY_CLIENT_ID,
-        'client_secret': SPOTIFY_CLIENT_SECRET,
-        'code': refresh_token
+        'client_secret': SPOTIFY_CLIENT_SECRET
     }).encode()
     url = f'https://accounts.spotify.com/api/token'
-    with urllib.request.urlopen(url, data=request_params) as response:
+    with urlopen(url, data=request_params) as response:
         content = ast.literal_eval(response.read().decode())
         return content['access_token'], content['refresh_token']
+
+
+def refresh_refresh_token(refresh_token):
+    request_params = urlencode({
+        'grant_type': 'refresh_token',
+        'refresh_token': refresh_token,
+        'code': refresh_token,
+        'redirect_uri': REDIRECT_URI,
+        'client_id': SPOTIFY_CLIENT_ID,
+        'client_secret': SPOTIFY_CLIENT_SECRET
+    }).encode()
+    url = f'https://accounts.spotify.com/api/token'
+    with urlopen(url, data=request_params) as response:
+        content = ast.literal_eval(response.read().decode())
+        return content['access_token']
 
 
 def prompt_user_for_auth():
@@ -142,7 +156,7 @@ def get_token(restore_token=True, save_token=True):
 
         if REFRESHABLE_AUTH:
             try:
-                token = redeem_refresh_token(token)
+                token = refresh_refresh_token(token)
             except HTTPError:
                 # This will fail if the token wasn't a refresh token
                 pass
