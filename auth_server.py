@@ -17,29 +17,6 @@ REDIRECT_URI = f'http://localhost:{SERVER_PORT}/auth'
 TOKEN_FILE = Path(__file__).parent / RELATIVE_TOKEN_FILE
 
 
-class AuthorizationError(Exception):
-    pass
-
-
-def do_save_token(token):
-    token_path = Path(TOKEN_FILE).resolve()
-    token_path.touch(0o600, exist_ok=True)
-    token_path.write_text(token)
-
-
-def listen_for_token(port):
-    RequestHandler, shared_context = create_request_handler()
-    httpd = HTTPServer(('localhost', port), RequestHandler)
-    while True:
-        httpd.handle_request()
-        if shared_context['access_token']:
-            return shared_context['access_token']
-        if shared_context['code']:
-            return shared_context['code']
-        elif shared_context['error']:
-            raise AuthorizationError(shared_context['error'])
-
-
 def create_request_handler():
 
     shared_context = {
@@ -70,7 +47,7 @@ def create_request_handler():
             <p>{error}</p>
             </html>
         """
-        
+
         def do_GET(self):
             qs = urlparse(self.path).query
             qs_dict = parse_qs(qs)
@@ -95,37 +72,25 @@ def create_request_handler():
                 html = self._error_tpl.format(error=error)
             self.wfile.write(html.encode('utf8'))
             self.wfile.flush()
-    
+
     return AuthRequestHandler, shared_context
 
 
-def redeem_refresh_token(refresh_token):
-    request_params = urlencode({
-        'grant_type': 'authorization_code',
-        'code': refresh_token,
-        'redirect_uri': REDIRECT_URI,
-        'client_id': SPOTIFY_CLIENT_ID,
-        'client_secret': SPOTIFY_CLIENT_SECRET
-    }).encode()
-    url = f'https://accounts.spotify.com/api/token'
-    with urlopen(url, data=request_params) as response:
-        content = ast.literal_eval(response.read().decode())
-        return content['access_token'], content['refresh_token']
+class AuthorizationError(Exception):
+    pass
 
 
-def refresh_refresh_token(refresh_token):
-    request_params = urlencode({
-        'grant_type': 'refresh_token',
-        'refresh_token': refresh_token,
-        'code': refresh_token,
-        'redirect_uri': REDIRECT_URI,
-        'client_id': SPOTIFY_CLIENT_ID,
-        'client_secret': SPOTIFY_CLIENT_SECRET
-    }).encode()
-    url = f'https://accounts.spotify.com/api/token'
-    with urlopen(url, data=request_params) as response:
-        content = ast.literal_eval(response.read().decode())
-        return content['access_token']
+def listen_for_token(port):
+    request_handler, shared_context = create_request_handler()
+    httpd = HTTPServer(('localhost', port), request_handler)
+    while True:
+        httpd.handle_request()
+        if shared_context['access_token']:
+            return shared_context['access_token']
+        if shared_context['code']:
+            return shared_context['code']
+        elif shared_context['error']:
+            raise AuthorizationError(shared_context['error'])
 
 
 def prompt_user_for_auth():
@@ -134,12 +99,12 @@ def prompt_user_for_auth():
     else:
         response_type = 'token'
 
-    url_params = urlencode(dict(
-        redirect_uri=REDIRECT_URI,
-        response_type=response_type,
-        client_id=SPOTIFY_CLIENT_ID,
-        scope='playlist-read-private playlist-read-collaborative'
-    ))
+    url_params = urlencode({
+        'redirect_uri': REDIRECT_URI,
+        'response_type': response_type,
+        'client_id': SPOTIFY_CLIENT_ID,
+        'scope': 'playlist-read-private playlist-read-collaborative'
+    })
     url = f'https://accounts.spotify.com/authorize?{url_params}'
     print(
         "",
@@ -150,13 +115,49 @@ def prompt_user_for_auth():
     return listen_for_token(port=SERVER_PORT)
 
 
+def request_refresh_token(token_params):
+    request_params = urlencode({
+        'redirect_uri': REDIRECT_URI,
+        'client_id': SPOTIFY_CLIENT_ID,
+        'client_secret': SPOTIFY_CLIENT_SECRET,
+        **token_params
+    }).encode()
+    url = f'https://accounts.spotify.com/api/token'
+    with urlopen(url, data=request_params) as response:
+        return ast.literal_eval(response.read().decode())
+
+
+def activate_refresh_token(refresh_token):
+    token_params = {
+        'grant_type': 'authorization_code',
+        'code': refresh_token
+    }
+    content = request_refresh_token(token_params)
+    return content['access_token'], content['refresh_token']
+
+
+def redeem_refresh_token(refresh_token):
+    token_params = {
+        'grant_type': 'refresh_token',
+        'refresh_token': refresh_token
+    }
+    content = request_refresh_token(token_params)
+    return content['access_token']
+
+
+def save_token_to_file(token):
+    token_path = Path(TOKEN_FILE).resolve()
+    token_path.touch(0o600, exist_ok=True)
+    token_path.write_text(token)
+
+
 def get_token(restore_token=True, save_token=True):
     if restore_token and TOKEN_FILE.resolve().exists():
         token = Path(TOKEN_FILE).read_text().strip()
 
         if REFRESHABLE_AUTH:
             try:
-                token = refresh_refresh_token(token)
+                token = redeem_refresh_token(token)
             except HTTPError:
                 # This will fail if the token wasn't a refresh token
                 pass
@@ -176,12 +177,12 @@ def get_token(restore_token=True, save_token=True):
     token = prompt_user_for_auth()
 
     if REFRESHABLE_AUTH:
-        token, savable_token = redeem_refresh_token(token)
+        token, savable_token = activate_refresh_token(token)
     else:
         savable_token = token
 
     if save_token:
-        do_save_token(savable_token)
+        save_token_to_file(savable_token)
     return token
 
 
