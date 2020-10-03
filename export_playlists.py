@@ -45,7 +45,7 @@ def main():
             plname = unicodedata.normalize('NFKD', plname)
             # Hack to make sure plname is a string, not bytes
             plname = plname.encode(encoding='ascii', errors='ignore') \
-                           .decode(encoding='ascii')
+                           .decode(encoding='ascii').strip()
 
         backup_fname = f"{plname}_{pl['id']}.json"
         backup_fnames.add(backup_fname)
