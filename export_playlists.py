@@ -38,9 +38,14 @@ def main():
                            .replace(':', '=').replace('?', '_') \
                            .replace('|', '-').replace('*', '+') \
                            .replace('<', '[').replace('>', ']')
-        # Remove any Unicode characters from filename, if the filesystem doesn't support them
+
+        # Remove any Unicode characters from filename, if the filesystem
+        # doesn't support them, or if option is enabled
         if not supports_unicode_filenames or RESTRICT_FILENAME:
-            plname = unicodedata.normalize('NFKD', plname).encode('ascii', 'ignore')
+            plname = unicodedata.normalize('NFKD', plname)
+            # Hack to make sure plname is a string, not bytes
+            plname = plname.encode(encoding='ascii', errors='ignore') \
+                           .decode(encoding='ascii')
 
         backup_fname = f"{plname}_{pl['id']}.json"
         backup_fnames.add(backup_fname)
