@@ -8,7 +8,7 @@ from pathlib import Path
 from spotipy import Spotify
 
 import auth_server
-from config import PLAYLISTS_FOLDER, PLAYLIST_FIELDS
+from config import PLAYLISTS_FOLDER, PLAYLIST_FIELDS, RESTRICT_FILENAME
 
 
 def retrieve_all_items(spotify, result):
@@ -39,7 +39,7 @@ def main():
                            .replace('|', '-').replace('*', '+') \
                            .replace('<', '[').replace('>', ']')
         # Remove any Unicode characters from filename, if the filesystem doesn't support them
-        if not supports_unicode_filenames:
+        if not supports_unicode_filenames or RESTRICT_FILENAME:
             plname = unicodedata.normalize('NFKD', plname).encode('ascii', 'ignore')
 
         backup_fname = f"{plname}_{pl['id']}.json"

@@ -6,3 +6,6 @@ TOKEN_FILE = './token.txt'
 # Comma-separated list of playlist fields
 # See https://developer.spotify.com/documentation/web-api/reference/playlists/get-playlist/
 PLAYLIST_FIELDS = ''
+
+# Restrict playlist file names to ASCII
+RESTRICT_FILENAME = False
