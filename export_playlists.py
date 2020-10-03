@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import json
+import unicodedata
+from os.path import supports_unicode_filenames
 from pathlib import Path
 
 from spotipy import Spotify
@@ -18,6 +20,7 @@ def retrieve_all_items(spotify, result):
 
 
 def main():
+    # Create the playlists folder, if it doesn't already exist
     pl_folder = Path(__file__).parent / PLAYLISTS_FOLDER
     pl_folder.mkdir(exist_ok=True)
 
@@ -25,12 +28,20 @@ def main():
     token = auth_server.get_token()
     print("Starting export")
     sp = Spotify(auth=token)
+
     backup_fnames = set()
     for pl in retrieve_all_items(sp, sp.current_user_playlists()):
         name = pl['name']
+        # Replace any characters that can't go in a filename
         plname = pl['name'].replace('/', '_').replace('\\', '_')\
-                           .replace('"', '`').replace("'", '`')\
-                           .replace(":", '-').replace('?', '-')
+                           .replace('"', '^').replace("'", '^') \
+                           .replace(':', '=').replace('?', '_') \
+                           .replace('|', '-').replace('*', '+') \
+                           .replace('<', '[').replace('>', ']')
+        # Remove any Unicode characters from filename, if the filesystem doesn't support them
+        if not supports_unicode_filenames:
+            plname = unicodedata.normalize('NFKD', plname).encode('ascii', 'ignore')
+
         backup_fname = f"{plname}_{pl['id']}.json"
         backup_fnames.add(backup_fname)
         backup_fpath = pl_folder / backup_fname
