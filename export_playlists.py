@@ -60,9 +60,7 @@ def main():
                 continue
 
         print(f'Retrieving playlist: {name}')
-        playlist = sp.user_playlist(
-            user=pl['owner']['id'], playlist_id=pl['id'], fields=PLAYLIST_FIELDS
-        )
+        playlist = sp.playlist(playlist_id=pl['id'], fields=PLAYLIST_FIELDS)
         if 'tracks' in playlist and 'items' in playlist['tracks'] and 'next' in playlist['tracks']:
             playlist['tracks']['items'] = retrieve_all_items(sp, playlist['tracks'])
         backup_fpath.write_text(json.dumps(playlist))

@@ -8,7 +8,5 @@ name = "pypi"
 [dev-packages]
 
 
-
 [packages]
-
-spotipy = "~= 2.4.4"
+spotipy = "~= 2.16.1"
