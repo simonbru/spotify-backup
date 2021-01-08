@@ -8,7 +8,11 @@ from pathlib import Path
 from spotipy import Spotify
 
 import auth_server
-from config import PLAYLISTS_FOLDER, PLAYLIST_FIELDS, RESTRICT_FILENAME
+from config import LIBRARY_FOLDER, PLAYLIST_FIELDS, RESTRICT_FILENAME
+
+
+# Max number of items per page (allowed by Spotify API)
+MAX_LIMIT = 50
 
 
 def retrieve_all_items(spotify, result):
@@ -19,16 +23,38 @@ def retrieve_all_items(spotify, result):
     return items
 
 
+def backup_library(spotify, backup_folder):
+    print("Retrieving saved tracks")
+    result = spotify.current_user_saved_tracks(limit=MAX_LIMIT)
+    items = retrieve_all_items(spotify, result)
+    backup_fpath = backup_folder / "tracks.json"
+    backup_fpath.write_text(json.dumps(items))
+
+    print("Retrieving saved albums")
+    result = spotify.current_user_saved_albums(limit=MAX_LIMIT)
+    items = retrieve_all_items(spotify, result)
+    backup_fpath = backup_folder / "albums.json"
+    backup_fpath.write_text(json.dumps(items))
+
+    print("Retrieving saved shows")
+    result = spotify.current_user_saved_shows(limit=MAX_LIMIT)
+    items = retrieve_all_items(spotify, result)
+    backup_fpath = backup_folder / "shows.json"
+    backup_fpath.write_text(json.dumps(items))
+
+
 def main():
-    # Create the playlists folder, if it doesn't already exist
-    pl_folder = Path(__file__).parent / PLAYLISTS_FOLDER
-    pl_folder.mkdir(exist_ok=True)
+    # Create the library folder, if it doesn't already exist
+    library_folder = Path(__file__).parent / LIBRARY_FOLDER
+    library_folder.mkdir(exist_ok=True)
 
     print("Retrieving auth token")
     token = auth_server.get_token()
     print("Starting export")
     sp = Spotify(auth=token)
 
+    pl_folder = library_folder / "playlists"
+    pl_folder.mkdir(exist_ok=True)
     backup_fnames = set()
     for pl in retrieve_all_items(sp, sp.current_user_playlists()):
         name = pl['name']
@@ -73,6 +99,8 @@ def main():
     for fname in deleted_fnames:
         print(f'Move playlist backup to deleted folder: {fname}')
         (pl_folder / fname).replace(deleted_fpath / fname)
+
+    backup_library(sp, library_folder)
 
 
 if __name__ == "__main__":

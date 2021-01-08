@@ -1,5 +1,5 @@
 # Paths can be absolute or relative to this project's folder
-PLAYLISTS_FOLDER = './playlists'
+LIBRARY_FOLDER = './library'
 TOKEN_FILE = './token.txt'
 
 # Option to use a refreshable token for auth, instead of a short-lived token

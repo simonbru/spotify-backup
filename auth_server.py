@@ -103,7 +103,11 @@ def prompt_user_for_auth():
         'redirect_uri': REDIRECT_URI,
         'response_type': response_type,
         'client_id': SPOTIFY_CLIENT_ID,
-        'scope': 'playlist-read-private playlist-read-collaborative'
+        'scope': " ".join((
+            'playlist-read-private',
+            'playlist-read-collaborative',
+            'user-library-read',
+        ))
     })
     url = f'https://accounts.spotify.com/authorize?{url_params}'
     print(
