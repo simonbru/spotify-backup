@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import ast
+import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.request import HTTPError, Request, urlopen
@@ -124,7 +124,7 @@ def request_refresh_token(token_params):
     }).encode()
     url = f'https://accounts.spotify.com/api/token'
     with urlopen(url, data=request_params) as response:
-        return ast.literal_eval(response.read().decode())
+        return json.loads(response.read().decode())
 
 
 def activate_refresh_token(refresh_token):
