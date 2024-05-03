@@ -9,4 +9,4 @@ name = "pypi"
 ipdb = "*"
 
 [packages]
-spotipy = "~= 2.16.1"
+spotipy = "~= 2.23.0"
