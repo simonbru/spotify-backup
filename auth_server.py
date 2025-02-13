@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
+import base64
+import hashlib
 import json
+import os
+import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.request import HTTPError, urlopen
 from urllib.parse import urlencode, urlparse, parse_qs
 
 from config import TOKEN_FILE as RELATIVE_TOKEN_FILE
-from config import CLIENT_ID as SPOTIFY_CLIENT_ID, CLIENT_SECRET as SPOTIFY_CLIENT_SECRET
+from config import CLIENT_ID as SPOTIFY_CLIENT_ID
 
 
 SERVER_PORT = 8193
@@ -86,10 +90,19 @@ def listen_for_authorization_code(port):
 
 
 def prompt_user_for_auth():
+    code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode('utf-8')
+    code_verifier = re.sub('[^a-zA-Z0-9]+', '', code_verifier)
+
+    code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+    code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
+    code_challenge = code_challenge.replace('=', '')
+
     url_params = urlencode({
         'redirect_uri': REDIRECT_URI,
         'response_type': 'code',
         'client_id': SPOTIFY_CLIENT_ID,
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256',
         'scope': " ".join((
             'playlist-read-private',
             'playlist-read-collaborative',
@@ -103,14 +116,14 @@ def prompt_user_for_auth():
         url,
         sep='\n'
     )
-    return listen_for_authorization_code(port=SERVER_PORT)
+    code = listen_for_authorization_code(port=SERVER_PORT)
+    return code, code_verifier
 
 
 def request_refresh_token(token_params):
     request_params = urlencode({
         'redirect_uri': REDIRECT_URI,
         'client_id': SPOTIFY_CLIENT_ID,
-        'client_secret': SPOTIFY_CLIENT_SECRET,
         **token_params
     }).encode()
     url = 'https://accounts.spotify.com/api/token'
@@ -118,10 +131,11 @@ def request_refresh_token(token_params):
         return json.loads(response.read().decode())
 
 
-def activate_refresh_token(refresh_token):
+def activate_refresh_token(refresh_token, code_verifier):
     token_params = {
         'grant_type': 'authorization_code',
-        'code': refresh_token
+        'code': refresh_token,
+        'code_verifier': code_verifier,
     }
     content = request_refresh_token(token_params)
     return content['access_token'], content['refresh_token']
@@ -133,7 +147,7 @@ def redeem_refresh_token(refresh_token):
         'refresh_token': refresh_token
     }
     content = request_refresh_token(token_params)
-    return content['access_token']
+    return content['access_token'], content['refresh_token']
 
 
 def save_token_to_file(token):
@@ -143,18 +157,19 @@ def save_token_to_file(token):
 
 
 def get_token(restore_token=True, save_token=True):
+    access_token = None
+
     if restore_token and TOKEN_FILE.resolve().exists():
         refresh_token = Path(TOKEN_FILE).read_text().strip()
         try:
-            access_token = redeem_refresh_token(refresh_token)
+            access_token, refresh_token = redeem_refresh_token(refresh_token)
         except HTTPError:
             # Go on and get a new refresh token
             pass
-        else:
-            return access_token
 
-    code = prompt_user_for_auth()
-    access_token, refresh_token = activate_refresh_token(code)
+    if not access_token:
+        code, code_verifier = prompt_user_for_auth()
+        access_token, refresh_token = activate_refresh_token(code, code_verifier)
 
     if save_token:
         save_token_to_file(refresh_token)
