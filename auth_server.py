@@ -3,7 +3,7 @@
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.request import HTTPError, Request, urlopen
+from urllib.request import HTTPError, urlopen
 from urllib.parse import urlencode, urlparse, parse_qs
 
 from config import TOKEN_FILE as RELATIVE_TOKEN_FILE
@@ -74,15 +74,15 @@ class AuthorizationError(Exception):
     pass
 
 
-def listen_for_token(port):
+def listen_for_authorization_code(port):
     request_handler, shared_context = create_request_handler()
-    httpd = HTTPServer(('localhost', port), request_handler)
-    while True:
-        httpd.handle_request()
-        if shared_context['code']:
-            return shared_context['code']
-        elif shared_context['error']:
-            raise AuthorizationError(shared_context['error'])
+    with HTTPServer(('localhost', port), request_handler) as httpd:
+        while True:
+            httpd.handle_request()
+            if shared_context['code']:
+                return shared_context['code']
+            elif shared_context['error']:
+                raise AuthorizationError(shared_context['error'])
 
 
 def prompt_user_for_auth():
@@ -103,7 +103,7 @@ def prompt_user_for_auth():
         url,
         sep='\n'
     )
-    return listen_for_token(port=SERVER_PORT)
+    return listen_for_authorization_code(port=SERVER_PORT)
 
 
 def request_refresh_token(token_params):
@@ -144,33 +144,21 @@ def save_token_to_file(token):
 
 def get_token(restore_token=True, save_token=True):
     if restore_token and TOKEN_FILE.resolve().exists():
-        token = Path(TOKEN_FILE).read_text().strip()
-
+        refresh_token = Path(TOKEN_FILE).read_text().strip()
         try:
-            token = redeem_refresh_token(token)
+            access_token = redeem_refresh_token(refresh_token)
         except HTTPError:
-            # This will fail if the token wasn't a refresh token
-            pass
-
-        # Check that the token is valid
-        req = Request(
-            'https://api.spotify.com/v1/me',
-            headers={'Authorization': f'Bearer {token}'}
-        )
-        try:
-            urlopen(req)
-        except HTTPError:
+            # Go on and get a new refresh token
             pass
         else:
-            return token
+            return access_token
 
-    token = prompt_user_for_auth()
-
-    token, savable_token = activate_refresh_token(token)
+    code = prompt_user_for_auth()
+    access_token, refresh_token = activate_refresh_token(code)
 
     if save_token:
-        save_token_to_file(savable_token)
-    return token
+        save_token_to_file(refresh_token)
+    return access_token
 
 
 if __name__ == '__main__':
