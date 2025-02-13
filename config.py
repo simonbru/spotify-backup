@@ -2,8 +2,6 @@
 LIBRARY_FOLDER = './library'
 TOKEN_FILE = './token.txt'
 
-# Option to use a refreshable token for auth, instead of a short-lived token
-REFRESHABLE_AUTH = False
 # Obtained from https://developer.spotify.com/dashboard/applications
 # See https://developer.spotify.com/documentation/general/guides/app-settings/
 CLIENT_ID = "239865de29224f048b0cb696e2592f8e"

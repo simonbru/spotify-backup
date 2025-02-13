@@ -8,11 +8,10 @@ from urllib.parse import urlencode, urlparse, parse_qs
 
 from config import TOKEN_FILE as RELATIVE_TOKEN_FILE
 from config import CLIENT_ID as SPOTIFY_CLIENT_ID, CLIENT_SECRET as SPOTIFY_CLIENT_SECRET
-from config import REFRESHABLE_AUTH
 
 
 SERVER_PORT = 8193
-REDIRECT_URI = f'http://localhost:{SERVER_PORT}/auth'
+REDIRECT_URI = f'http://127.0.0.1:{SERVER_PORT}/auth'
 
 TOKEN_FILE = Path(__file__).parent / RELATIVE_TOKEN_FILE
 
@@ -20,7 +19,6 @@ TOKEN_FILE = Path(__file__).parent / RELATIVE_TOKEN_FILE
 def create_request_handler():
 
     shared_context = {
-        'access_token': None,
         'code': None,
         'error': None
     }
@@ -58,10 +56,6 @@ def create_request_handler():
 
             if not qs_dict:
                 html = self._redirect_tpl
-            elif 'access_token' in qs_dict:
-                token = qs_dict['access_token'][0]
-                shared_context['access_token'] = token
-                html = self._success_tpl
             elif 'code' in qs_dict:
                 token = qs_dict['code'][0]
                 shared_context['code'] = token
@@ -85,8 +79,6 @@ def listen_for_token(port):
     httpd = HTTPServer(('localhost', port), request_handler)
     while True:
         httpd.handle_request()
-        if shared_context['access_token']:
-            return shared_context['access_token']
         if shared_context['code']:
             return shared_context['code']
         elif shared_context['error']:
@@ -94,14 +86,9 @@ def listen_for_token(port):
 
 
 def prompt_user_for_auth():
-    if REFRESHABLE_AUTH:
-        response_type = 'code'
-    else:
-        response_type = 'token'
-
     url_params = urlencode({
         'redirect_uri': REDIRECT_URI,
-        'response_type': response_type,
+        'response_type': 'code',
         'client_id': SPOTIFY_CLIENT_ID,
         'scope': " ".join((
             'playlist-read-private',
@@ -126,7 +113,7 @@ def request_refresh_token(token_params):
         'client_secret': SPOTIFY_CLIENT_SECRET,
         **token_params
     }).encode()
-    url = f'https://accounts.spotify.com/api/token'
+    url = 'https://accounts.spotify.com/api/token'
     with urlopen(url, data=request_params) as response:
         return json.loads(response.read().decode())
 
@@ -159,12 +146,11 @@ def get_token(restore_token=True, save_token=True):
     if restore_token and TOKEN_FILE.resolve().exists():
         token = Path(TOKEN_FILE).read_text().strip()
 
-        if REFRESHABLE_AUTH:
-            try:
-                token = redeem_refresh_token(token)
-            except HTTPError:
-                # This will fail if the token wasn't a refresh token
-                pass
+        try:
+            token = redeem_refresh_token(token)
+        except HTTPError:
+            # This will fail if the token wasn't a refresh token
+            pass
 
         # Check that the token is valid
         req = Request(
@@ -180,10 +166,7 @@ def get_token(restore_token=True, save_token=True):
 
     token = prompt_user_for_auth()
 
-    if REFRESHABLE_AUTH:
-        token, savable_token = activate_refresh_token(token)
-    else:
-        savable_token = token
+    token, savable_token = activate_refresh_token(token)
 
     if save_token:
         save_token_to_file(savable_token)
