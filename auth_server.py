@@ -3,8 +3,7 @@
 import base64
 import hashlib
 import json
-import os
-import re
+import secrets
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.request import HTTPError, urlopen
@@ -90,11 +89,10 @@ def listen_for_authorization_code(port):
 
 
 def prompt_user_for_auth():
-    code_verifier = base64.urlsafe_b64encode(os.urandom(40)).decode('utf-8')
-    code_verifier = re.sub('[^a-zA-Z0-9]+', '', code_verifier)
+    code_verifier = secrets.token_urlsafe()
 
-    code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
-    code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8')
+    code_challenge = hashlib.sha256(code_verifier.encode('ascii')).digest()
+    code_challenge = base64.urlsafe_b64encode(code_challenge).decode('ascii')
     code_challenge = code_challenge.replace('=', '')
 
     url_params = urlencode({
