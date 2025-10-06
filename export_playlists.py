@@ -96,9 +96,12 @@ def main():
     deleted_fpath.mkdir(exist_ok=True)
     all_fnames = set(p.name for p in pl_folder.glob('*.json'))
     deleted_fnames = all_fnames - backup_fnames
-    for fname in deleted_fnames:
-        print(f'Move playlist backup to deleted folder: {fname}')
-        (pl_folder / fname).replace(deleted_fpath / fname)
+    if deleted_fnames and not backup_fnames:
+        print("All playlists have been deleted. This is unusual, so skip deletion of previous playlists.")
+    else:
+        for fname in deleted_fnames:
+            print(f'Move playlist backup to deleted folder: {fname}')
+            (pl_folder / fname).replace(deleted_fpath / fname)
 
     backup_library(sp, library_folder)
 
