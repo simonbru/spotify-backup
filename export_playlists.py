@@ -87,8 +87,13 @@ def main():
 
         print(f'Retrieving playlist: {name}')
         playlist = sp.playlist(playlist_id=pl['id'], fields=PLAYLIST_FIELDS)
-        if 'tracks' in playlist and 'items' in playlist['tracks'] and 'next' in playlist['tracks']:
-            playlist['tracks']['items'] = retrieve_all_items(sp, playlist['tracks'])
+        if not playlist:
+            print(f"WARNING: No result when fetching playlist {name}")
+            continue
+        elif not (playlist.get('items') or {}).get('items', []):
+            print(f"WARNING: No tracks for playlist {name}. Only metadata is backed up.")
+        elif 'next' in playlist['items']:
+            playlist['items']['items'] = retrieve_all_items(sp, playlist['items'])
         backup_fpath.write_text(json.dumps(playlist))
 
     # Move deleted playlists elsewhere
