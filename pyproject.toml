@@ -5,7 +5,7 @@ description = "Export Spotify playlists to JSON files"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "spotipy>=2.25.0",
+    "spotipy>=2.26.0",
 ]
 
 [dependency-groups]
