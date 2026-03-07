@@ -33,6 +33,10 @@ def backup_library(spotify, backup_folder):
     print("Retrieving saved albums")
     result = spotify.current_user_saved_albums(limit=MAX_LIMIT)
     items = retrieve_all_items(spotify, result)
+    for item in items:
+        if item['album']['tracks']['next']:
+            item['album']['tracks']["items"] = retrieve_all_items(spotify, item['album']['tracks'])
+
     backup_fpath = backup_folder / "albums.json"
     backup_fpath.write_text(json.dumps(items))
 
