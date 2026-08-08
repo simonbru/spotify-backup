@@ -139,13 +139,13 @@ def activate_refresh_token(refresh_token, code_verifier):
     return content['access_token'], content['refresh_token']
 
 
-def redeem_refresh_token(refresh_token):
+def redeem_refresh_token(refresh_token) -> tuple[str, None]:
     token_params = {
         'grant_type': 'refresh_token',
         'refresh_token': refresh_token
     }
     content = request_refresh_token(token_params)
-    return content['access_token'], content['refresh_token']
+    return content['access_token'], content.get('refresh_token')
 
 
 def save_token_to_file(token):
@@ -156,6 +156,7 @@ def save_token_to_file(token):
 
 def get_token(restore_token=True, save_token=True):
     access_token = None
+    refresh_token = None
 
     if restore_token and TOKEN_FILE.resolve().exists():
         refresh_token = Path(TOKEN_FILE).read_text().strip()
@@ -169,7 +170,7 @@ def get_token(restore_token=True, save_token=True):
         code, code_verifier = prompt_user_for_auth()
         access_token, refresh_token = activate_refresh_token(code, code_verifier)
 
-    if save_token:
+    if save_token and refresh_token:
         save_token_to_file(refresh_token)
     return access_token
 
